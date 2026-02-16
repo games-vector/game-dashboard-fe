@@ -1,39 +1,55 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api.service';
 import type { Game, LoginAndLaunchGameResponse } from '../../types';
 import PlayDemoButton from './PlayDemoButton';
 import ShareButton from './ShareButton';
+import UserIdDropdown from './UserIdDropdown';
 import { useCredentials } from '../../context/CredentialsContext';
 
 export default function GameDetailsPage() {
   const { gameCode } = useParams<{ gameCode: string }>();
   const navigate = useNavigate();
-  const { credentials } = useCredentials();
+  const { credentials, availableUsers, setCredentials } = useCredentials();
   const [game, setGame] = useState<Game | null>(null);
   const [gameUrl, setGameUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const hasLaunchedRef = useRef(false);
+  const gameCodeRef = useRef<string | undefined>(gameCode);
 
+  // Update gameCodeRef when gameCode changes
   useEffect(() => {
-    const fetchGameAndLaunch = async () => {
+    gameCodeRef.current = gameCode;
+  }, [gameCode]);
+
+  // Initialize selectedUserId from credentials when available
+  useEffect(() => {
+    if (credentials && !selectedUserId) {
+      setSelectedUserId(credentials.userId);
+    }
+  }, [credentials, selectedUserId]);
+
+  // Fetch game details on mount - only once per gameCode
+  useEffect(() => {
+    const fetchGame = async () => {
       if (!gameCode) {
         setError('Game code is required');
         setLoading(false);
         return;
       }
 
-      if (!credentials) {
-        setError('Credentials not available. Please go back to dashboard.');
-        setLoading(false);
-        return;
+      // Reset state when gameCode changes
+      if (gameCodeRef.current !== gameCode) {
+        hasLaunchedRef.current = false;
+        setGameUrl(null);
+        setSelectedUserId(null);
       }
 
       try {
         setLoading(true);
-        
-        // First, get game details
         const gamesResponse = await apiService.getDashboardGames();
         const foundGame = gamesResponse.games.find(
           (g) => g.gameCode === gameCode
@@ -46,35 +62,86 @@ export default function GameDetailsPage() {
         }
 
         setGame(foundGame);
-
-        // Then, call doLoginAndLaunchGame with credentials
-        setLaunching(true);
-        const launchResponse: LoginAndLaunchGameResponse =
-          await apiService.loginAndLaunchGame({
-            cert: credentials.cert,
-            agentId: credentials.agentId,
-            userId: credentials.userId,
-            platform: foundGame.platform,
-            gameType: foundGame.gameType,
-            gameCode: foundGame.gameCode,
-          });
-
-        if (launchResponse.status === '0000' && launchResponse.url) {
-          setGameUrl(launchResponse.url);
-        } else {
-          setError(launchResponse.desc || 'Failed to launch game');
-        }
+        setError(null);
       } catch (err: any) {
         setError(err.message || 'Failed to load game');
         console.error('Error loading game:', err);
       } finally {
         setLoading(false);
-        setLaunching(false);
       }
     };
 
-    fetchGameAndLaunch();
-  }, [gameCode, credentials]);
+    fetchGame();
+  }, [gameCode]);
+
+  // Regenerate game URL with selected userId
+  const regenerateGameUrl = useCallback(async (userId: string, skipContextUpdate = false) => {
+    if (!game || !availableUsers.length) {
+      return;
+    }
+
+    const selectedUser = availableUsers.find((u) => u.userId === userId);
+    if (!selectedUser) {
+      setError('Selected user not found');
+      return;
+    }
+
+    try {
+      setLaunching(true);
+      setError(null);
+
+      // Update credentials context with selected user (only if not skipping)
+      if (!skipContextUpdate) {
+        setCredentials(selectedUser, availableUsers);
+      }
+
+      // Call doLoginAndLaunchGame with new credentials
+      const launchResponse: LoginAndLaunchGameResponse =
+        await apiService.loginAndLaunchGame({
+          cert: selectedUser.cert,
+          agentId: selectedUser.agentId,
+          userId: selectedUser.userId,
+          platform: game.platform,
+          gameType: game.gameType,
+          gameCode: game.gameCode,
+        });
+
+      if (launchResponse.status === '0000' && launchResponse.url) {
+        setGameUrl(launchResponse.url);
+        hasLaunchedRef.current = true;
+      } else {
+        setError(launchResponse.desc || 'Failed to launch game');
+        setGameUrl(null);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to launch game');
+      setGameUrl(null);
+      console.error('Error launching game:', err);
+    } finally {
+      setLaunching(false);
+    }
+  }, [game, availableUsers, setCredentials]);
+
+  // Auto-launch game on mount if credentials are available - only once
+  useEffect(() => {
+    if (
+      game &&
+      credentials &&
+      selectedUserId &&
+      !gameUrl &&
+      !launching &&
+      !hasLaunchedRef.current &&
+      gameCodeRef.current === gameCode
+    ) {
+      regenerateGameUrl(selectedUserId, true);
+    }
+  }, [game, credentials, selectedUserId, gameUrl, launching, regenerateGameUrl, gameCode]);
+
+  // Handle userId change from dropdown
+  const handleUserIdChange = (userId: string) => {
+    setSelectedUserId(userId);
+    regenerateGameUrl(userId);
+  };
 
   if (loading || launching) {
     return (
@@ -95,6 +162,24 @@ export default function GameDetailsPage() {
         <div className="text-center">
           <p className="text-red-600 dark:text-red-400 mb-4">
             {error || 'Game not found'}
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!credentials) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-600 dark:text-red-400 mb-4">
+            Credentials not available. Please go back to dashboard.
           </p>
           <button
             onClick={() => navigate('/')}
@@ -136,6 +221,16 @@ export default function GameDetailsPage() {
           {/* Left Side - Game Info */}
           <div>
             <h1 className="text-5xl font-bold text-white mb-6">{game.displayName}</h1>
+            
+            {/* User ID Dropdown */}
+            {availableUsers.length > 1 && (
+              <UserIdDropdown
+                availableUsers={availableUsers}
+                selectedUserId={selectedUserId || credentials?.userId || ''}
+                onUserIdChange={handleUserIdChange}
+                disabled={launching}
+              />
+            )}
             
             {/* Action Buttons */}
             {gameUrl && (

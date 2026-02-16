@@ -17,12 +17,25 @@ export default function GameGrid() {
         const response = await apiService.getDashboardGames();
         setGames(response.games);
         
-        // Store credentials in context
-        setCredentials({
-          userId: response.userId,
-          agentId: response.agentId,
-          cert: response.cert,
-        });
+        // Store credentials in context along with available users
+        const usersList = response.availableUsers && Array.isArray(response.availableUsers) && response.availableUsers.length > 0
+          ? response.availableUsers
+          : [
+              {
+                userId: response.userId,
+                agentId: response.agentId,
+                cert: response.cert,
+              },
+            ];
+        
+        setCredentials(
+          {
+            userId: response.userId,
+            agentId: response.agentId,
+            cert: response.cert,
+          },
+          usersList
+        );
         
         setError(null);
       } catch (err: any) {
@@ -34,7 +47,8 @@ export default function GameGrid() {
     };
 
     fetchGames();
-  }, [setCredentials]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   if (loading) {
     return (

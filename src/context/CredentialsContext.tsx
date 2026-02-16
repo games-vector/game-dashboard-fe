@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 
 interface Credentials {
@@ -9,16 +9,25 @@ interface Credentials {
 
 interface CredentialsContextType {
   credentials: Credentials | null;
-  setCredentials: (creds: Credentials) => void;
+  availableUsers: Array<Credentials>;
+  setCredentials: (creds: Credentials, availableUsers?: Array<Credentials>) => void;
 }
 
 const CredentialsContext = createContext<CredentialsContextType | undefined>(undefined);
 
 export function CredentialsProvider({ children }: { children: ReactNode }) {
-  const [credentials, setCredentials] = useState<Credentials | null>(null);
+  const [credentials, setCredentialsState] = useState<Credentials | null>(null);
+  const [availableUsers, setAvailableUsers] = useState<Array<Credentials>>([]);
+
+  const setCredentials = useCallback((creds: Credentials, availableUsersList?: Array<Credentials>) => {
+    setCredentialsState(creds);
+    if (availableUsersList) {
+      setAvailableUsers(availableUsersList);
+    }
+  }, []);
 
   return (
-    <CredentialsContext.Provider value={{ credentials, setCredentials }}>
+    <CredentialsContext.Provider value={{ credentials, availableUsers, setCredentials }}>
       {children}
     </CredentialsContext.Provider>
   );

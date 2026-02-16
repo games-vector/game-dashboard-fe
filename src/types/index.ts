@@ -19,9 +19,14 @@ export interface Game {
 }
 
 export interface DashboardGamesResponse {
-  userId: string;
+  userId: string; // default/current userId (for backward compatibility)
   agentId: string;
   cert: string;
+  availableUsers: Array<{
+    userId: string;
+    agentId: string;
+    cert: string;
+  }>;
   games: Game[];
 }
 
