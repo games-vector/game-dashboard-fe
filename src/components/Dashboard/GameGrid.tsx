@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { apiService } from '../../services/api.service';
 import type { Game } from '../../types';
 import GameCard from './GameCard';
@@ -8,6 +8,7 @@ export default function GameGrid() {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const { setCredentials } = useCredentials();
 
   useEffect(() => {
@@ -49,6 +50,21 @@ export default function GameGrid() {
     fetchGames();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
+
+  // Filter games based on search query
+  const filteredGames = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return games;
+    }
+    
+    const query = searchQuery.toLowerCase().trim();
+    return games.filter((game) => {
+      const matchesName = game.gameName?.toLowerCase().includes(query);
+      const matchesDisplayName = game.displayName?.toLowerCase().includes(query);
+      const matchesDescription = game.description?.toLowerCase().includes(query);
+      return matchesName || matchesDisplayName || matchesDescription;
+    });
+  }, [games, searchQuery]);
 
   if (loading) {
     return (
@@ -106,12 +122,44 @@ export default function GameGrid() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold text-white mb-8">All Games</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {games.map((game) => (
-            <GameCard key={game.gameCode} game={game} />
-          ))}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
+          <h1 className="text-4xl font-bold text-white">All Games</h1>
+          {/* Search Bar */}
+          <div className="relative w-full md:w-80">
+            <input
+              type="text"
+              placeholder="Search games..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 pl-10 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            />
+            <svg
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
         </div>
+        
+        {filteredGames.length === 0 && searchQuery ? (
+          <div className="text-center py-12">
+            <p className="text-gray-400 text-lg">No games found matching "{searchQuery}"</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredGames.map((game) => (
+              <GameCard key={game.gameCode} game={game} />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
