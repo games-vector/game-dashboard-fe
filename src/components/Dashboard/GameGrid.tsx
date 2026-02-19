@@ -102,53 +102,44 @@ export default function GameGrid() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Header */}
-      <header className="bg-black border-b border-gray-800">
+    <div className="h-screen bg-gray-950 flex flex-col overflow-hidden">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-50 bg-black border-b border-gray-800 flex-shrink-0">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="text-2xl font-bold">
               <span className="text-white">IN</span>
               <span className="text-yellow-500">OUT</span>
             </div>
-            <nav className="flex gap-6">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">About us</a>
-              <a href="#" className="text-yellow-500 font-medium">Our Games</a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">News</a>
-            </nav>
+            {/* Search Bar */}
+            <div className="relative w-full max-w-md">
+              <input
+                type="text"
+                placeholder="Search games..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 pl-10 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              />
+              <svg
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
-          <h1 className="text-4xl font-bold text-white">All Games</h1>
-          {/* Search Bar */}
-          <div className="relative w-full md:w-80">
-            <input
-              type="text"
-              placeholder="Search games..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 pl-10 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-            />
-            <svg
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-        </div>
-        
+      {/* Scrollable Main Content */}
+      <main className="flex-1 overflow-y-auto container mx-auto px-4 py-12">
         {filteredGames.length === 0 && searchQuery ? (
           <div className="text-center py-12">
             <p className="text-gray-400 text-lg">No games found matching "{searchQuery}"</p>
